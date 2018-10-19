@@ -142,13 +142,3 @@ const doCommand = function(command) {
     }
 };
 doCommand(command);
-
-/*
-   * `concert-this`
-
-   * `spotify-song`
-
-   * `movie-this`
-
-   * `do-what-it-says`
-*/
