@@ -2,13 +2,19 @@ require('dotenv').config();
 const keys = require('./keys');
 const fs = require('fs');
 const request = require('request');
+const inquirer = require('inquirer');
 
 const Spotify = require('node-spotify-api');
 const spotify = new Spotify(keys.spotify);
 
 const OMDBKey = keys.omdb;
 
-const command = process.argv[2];
+let defaultcommand = process.argv[2];
+if(defaultcommand)
+{
+    defaultcommand = defaultcommand.toLowerCase();
+}
+
 let commandparams = process.argv.slice(3).join();
 
 const concertThis = function(artist) {
@@ -74,8 +80,6 @@ const movieThis = function(movie) {
             return console.log(error);
         }
 
-        console.log(body);
-
         let Information = JSON.parse(body);
 
         console.log(`Title: ${Information.Title}`);
@@ -100,7 +104,7 @@ const movieThis = function(movie) {
 }
 
 const logCommand = function(params) {
-    fs.appendFile('log.txt', `Run: ${command} Input: ${params? params : "None"}\n`, function(error) {
+    fs.appendFile('log.txt', `Run: ${defaultcommand} Input: ${params? params : "None"}\n`, function(error) {
         if(error)
         {
             return console.log(error);
@@ -121,24 +125,88 @@ const doWhatItSays = function() {
     })
 }
 
+const verifyParamsAndRun = function(callback) {
+    if(commandparams)
+    {
+        callback(commandparams);
+        return;
+    }
+
+    inquirer.prompt([
+        {
+            type: 'input',
+            message: `No parameters supplied for ${defaultcommand}, please specify terms to search?`,
+            name: 'params'
+        },
+    ]).then(function(response) {
+        callback(response.params);
+    })
+}
+
+const showCommands = function() {
+    console.log(`Available LIRI commands are
+    concert-this : Search bands in town API for concert venues and location
+    spotify-this : Search spotify API for information about this track
+    movie-this : Search OMDB API for various information about movie
+    do-what-it-says : Use spotify API on title located in random.txt
+    help : Display available commands`)
+}
+
 const doCommand = function(command) {
+    if(!command)
+    {
+        inquirer.prompt([
+            {
+                type: 'list',
+                message: 'What kind of command would you like to perform?',
+                choices: ['None', 'concert-this', 'spotify-this', 'movie-this', 'do-what-it-says', 'help'],
+                name: 'liricommand'
+            },
+        ]).then(function(response) {
+            let newcommand = response.liricommand;
+
+            if(newcommand === "None")
+            {
+                return;
+            }
+
+            if(newcommand === "help")
+            {
+                showCommands();
+                return;
+            }
+
+            if(newcommand === "concert-this" || newcommand === "spotify-this" || newcommand === "movie-this" || newcommand === "do-what-it-says")
+            {
+                defaultcommand = newcommand;
+                doCommand(newcommand);
+            }
+        })
+
+        return;
+    }
+
     switch(command)
     {
+        case "help":
+            showCommands();
+            break;
         case "concert-this":
-            concertThis(commandparams);
+            verifyParamsAndRun(concertThis);
             break;
         case "spotify-this":
         case "spotify-song":
-            spotifySong(commandparams);
+            verifyParamsAndRun(spotifySong);
             break;
         case "movie-this":
-            movieThis(commandparams);
+            verifyParamsAndRun(movieThis);
             break;
         case "do-what-it-says":
             doWhatItSays();
             break;
         default:
-            console.log(`Command "${command}" not recognized as a valid command`)
+            console.log(`Command "${command}" not recognized as a valid command\nUse liri help to get a list of potential commands.`)
     }
 };
-doCommand(command);
+
+doCommand(defaultcommand);
